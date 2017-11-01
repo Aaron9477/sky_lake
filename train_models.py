@@ -123,7 +123,7 @@ if __name__ == '__main__':
             train_time = time.time() - train_time   #得到训练时间
             print('time : ', train_time)
             score_tmp = clf.score(x_test,y_test)    #检验训练效果，得到准确度
-            if score_tmp <= score or score_tmp>0.98 or i>5:    #只有得分开始下降或者得分大于0.98才会退出循环
+            if (score_tmp-score)<0.001 or score_tmp>0.965 or i>4:    #只有得分开始下降或者得分大于0.98才会退出循环
                 if score_tmp > score:   #当前得分大于上一次的时候，需要存储新模型。其它情况不需要存储新模型
                     joblib.dump(clf, save_dir)
                     print(get_time(), ' saved a model for ', mall_id, ' . previoes score ', score, ' . new score',
