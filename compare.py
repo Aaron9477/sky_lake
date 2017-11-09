@@ -5,8 +5,8 @@ if __name__ == '__main__':
     conn = u.get_db_conn()
     cur = conn.cursor()
     malls = u.get_malls()
-    # algs = ['xgb','knn','DT','SGD','MNB','GNB','BNB','GBM']
-    algs = ['knn','DT','SGD','MNB','GNB','BNB','GBM']
+    algs = ['xgb','RF','knn','DT','SGD','MNB','GNB','BNB','GBM']
+    #algs = ['knn','DT','SGD','MNB','GNB','BNB','GBM']
     score_max = []
     algs_max = []
     score_tmp = 0

@@ -4,7 +4,67 @@
 import numpy as np
 import src.utils as utils
 import gc
+import time
 
+import os
+import pymysql
+from sklearn.externals import joblib    #储存模型
+import time
+from sklearn.model_selection import train_test_split
+from xgboost.sklearn import XGBClassifier   #Boosting Tree方法
+from src.utils import get_data
+from src.utils import get_model
+from src.utils import root_path
+
+
+conn = utils.get_db_conn()
+cur = conn.cursor()
+sql = 'SELECT mall_id FROM shop_info GROUP BY mall_id ORDER BY COUNT(*)'  # 按照商铺数量进行排序，找出所有商场？？？？？？
+cur.execute(sql)
+malls = [r[0] for r in cur.fetchall()]  # 得到商场的数组
+random_state = 10
+
+def get_time():
+    return time.asctime(time.localtime(time.time()))
+
+def examinate(algorithm_name):
+    table_name = 'score_' + algorithm_name  #结果存储表名
+    for mall_id in malls:
+        print(mall_id, ' with ', algorithm_name, ' starts...')
+        sql = "SELECT train_time FROM {s} WHERE mall_id='{m}'".format(m=mall_id, s=table_name)  # 检测这个商场有没有建过模型，建过模型会有记录
+        try:    # 测试有没有建过表，如果没建过就会建表
+            cur.execute(sql)
+        except pymysql.err.ProgrammingError:
+            sql2 = '''CREATE TABLE `{n}` (
+                                `mall_id`  varchar(255) NOT NULL ,
+                                `result`  varchar(255) NULL ,
+                                `param`  varchar(255) NULL ,
+                                `train_time`  int NULL ,
+                                PRIMARY KEY (`mall_id`)
+                                );'''.format(n=table_name)
+            cur.execute(sql2)
+            cur.execute(sql)
+        if cur.rowcount != 0:  # 已经建过模型
+            print(mall_id, ' has already been fittedwith ', algorithm_name)
+            continue
+        metrix, tar = get_data(mall_id)
+        x_train, x_test, y_train, y_test = train_test_split(metrix, tar, test_size=0.1,
+                                                            random_state=random_state)  # 分割测试集和训练集
+        save_dir = root_path + "model/" + algorithm_name + "_" + mall_id + "_model.m"  # 存储模型位置
+        clf = get_model(algorithm_name) # 根据名称获取新模型
+        train_time = time.time()
+        clf.fit(x_train, y_train)
+        train_time = time.time() - train_time
+        print('time : ', train_time)
+        score = clf.score(x_test, y_test)  # 检验训练效果，得到准确度
+        train_time = int(train_time)
+        sql = "INSERT INTO {tn} SET result='{s}', train_time={tt},mall_id='{m}' " \
+              "ON DUPLICATE KEY UPDATE result='{s}', train_time={tt}".format(
+            s=score, m=mall_id, tt=train_time, tn=table_name)
+        cur.execute(sql)
+        joblib.dump(clf, save_dir)
+        print(get_time(), ' saved a model for ', mall_id, ' with ', algorithm_name, ' .  score ', score)
+        conn.commit()
 
 if __name__ == '__main__':
     malls = utils.get_malls()
